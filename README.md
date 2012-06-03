@@ -1,13 +1,13 @@
 
-clj-blueprints
-==============
+clj-blueprints2
+===============
 
-`clj-blueprints` is a binding for the Blueprints graph DBMS API.
+`clj-blueprints2` is a binding for the Blueprints 2.0 graph DBMS API.
 
 Usage
 -----
 
-Simply add this to your leiningen deps: `[clj-blueprints "0.1.0"]`
+Simply add this to your leiningen deps: `[clj-blueprints2 "0.0.1"]`
 
 Documentation
 -------------
