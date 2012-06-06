@@ -55,7 +55,7 @@
   [^Element elem] (map #(pget elem %) (pkeys elem)))
 
 (defn as-map "Transforms an element to a Clojure hash-map."
-  [elem] (into {} (map #(vector % (pget elem %)) (pkeys elem))))
+  [^Element elem] (into {} (map #(vector % (pget elem %)) (pkeys elem))))
 
 ;; ; Transactions
 ;; (def +tx-success+ TransactionalGraph$Conclusion/SUCCESS)
