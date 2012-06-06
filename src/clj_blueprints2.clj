@@ -27,23 +27,20 @@
 (def ^{:doc "This dynamic var holds the currently used database."}
   ^:dynamic *db* nil)
 
-;; ; Element fns
-;; (defn get-id "" [elem] (.getId elem))
+; Element fns
+(defn get-id "" [^Graph elem] (.getId elem))
 
-;; (defn pget "Retrieves an element's property (given as a keyword)."
-;;   [elem prop]
-;;   (let [v (.getProperty elem (name prop))]
-;;     (if (and (string? v) (= (first v) \:))
-;;       (keyword (subs v 1))
-;;       v)))
+(defn pget "Retrieves an element's property (given as a keyword)."
+  [^Element elem prop]
+  (let [v (.getProperty elem (name prop))]
+    (if (and (string? v) (= (first v) \:))
+      (keyword (subs v 1))
+      v)))
 
-;; (defn passoc! "Assocs an element's property (given as a keyword)."
-;;   ([elem prop v]
-;;     (if (keyword? v)
-;;       (recur elem prop (str v))
-;;       (do (.setProperty elem (name prop) (if (keyword? v) (str v) v))
-;;         elem)))
-;;   ([elem prop v & kvs] (passoc! elem prop v) (apply passoc! elem kvs)))
+(defn passoc! "Assocs an element's property (given as a keyword)."
+  ([^Element elem prop v]
+     (doto elem (.setProperty (name prop) (if (keyword? v) (str v) v))))
+  ([^Element elem prop v & kvs] (passoc! elem prop v) (apply passoc! elem kvs)))
 
 ;; (defn pdissoc! "Dissocs an element's property (given as a keyword)."
 ;;   [elem prop] (.removeProperty elem (name prop)) elem)
