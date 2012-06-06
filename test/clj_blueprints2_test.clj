@@ -94,11 +94,59 @@
 
            )
 
-  (future-facts "about pdissoc!")
-  (future-facts "about pkeys")
-  (future-facts "about pvals")
-  (future-facts "about as-map")
-  (future-facts "about with-tx")
+  (facts "about pdissoc!"
+         (let [n (doto (.addVertex g nil)
+                   (.setProperty "one" "foo"))]
+           (pdissoc! n :one)
+           (.getProperty n "one")) => nil
+
+         (let [n (doto (.addVertex g nil)
+                   (.setProperty "one" "foo")
+                   (.setProperty "two" "bar")
+                   )]
+           (pdissoc! n :one :two)
+           (map #(.getProperty n %) ["one" "two"])) => [nil nil]
+
+           
+         (let [n (doto (.addEdge g nil first-vertice new-node "new")
+                   (.setProperty "one" "foo"))]
+           (pdissoc! n :one)
+           (.getProperty n "one")) => nil
+
+         (let [n (doto (.addEdge g nil first-vertice new-node "new")
+                   (.setProperty "one" "foo")
+                   (.setProperty "two" "bar")
+                   )]
+           (pdissoc! n :one :two)
+           (map #(.getProperty n %) ["one" "two"])) => [nil nil]
+           
+         )
+
+  (facts "about pkeys"
+         (pkeys first-vertice) => (just #{:name :lang})
+         (pkeys new-node) => (just #{:one :two :three})
+
+         (pkeys first-edge) => (just #{:weight})
+         (pkeys new-edge) => (just #{:four :five :six})
+         )
+
+  (facts "about pvals"
+         (pvals first-vertice) => (just #{"lop" "java"})
+         (pvals new-node) => (just #{:bar "foo" 42})
+
+         (pvals first-edge) => (just #{1.0})
+         (pvals new-edge) => (just #{:zed "quux" 55})
+         )
+
+  (facts "about as-map"
+         (as-map first-vertice) => {:name "lop", :lang "java"}
+         (as-map new-node) => {:one "foo", :three 42, :two :bar}
+
+         (as-map first-edge) => {:weight 1.0}
+         (as-map new-edge) => {:six 55, :five :zed, :four "quux"}
+         )
+
+  
   )
 
 

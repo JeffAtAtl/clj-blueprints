@@ -28,7 +28,8 @@
   ^:dynamic *db* nil)
 
 ; Element fns
-(defn get-id "" [^Graph elem] (.getId elem))
+(defn get-id [^Element elem]
+  (.getId elem))
 
 (defn pget "Retrieves an element's property (given as a keyword)."
   [^Element elem prop]
@@ -42,17 +43,19 @@
      (doto elem (.setProperty (name prop) (if (keyword? v) (str v) v))))
   ([^Element elem prop v & kvs] (passoc! elem prop v) (apply passoc! elem kvs)))
 
-;; (defn pdissoc! "Dissocs an element's property (given as a keyword)."
-;;   [elem prop] (.removeProperty elem (name prop)) elem)
+(defn pdissoc! "Dissocs an element's property (given as a keyword)."
+  ([^Element elem prop] (.removeProperty elem (name prop)) elem)
+  ([^Element elem prop & props] (pdissoc! elem (name prop)) (apply pdissoc! elem props))
+  )
 
-;; (defn pkeys "Returns an element's keys as keywords."
-;;   [elem] (map keyword (.getPropertyKeys elem)))
+(defn pkeys "Returns an element's keys as keywords."
+  [^Element elem] (map keyword (.getPropertyKeys elem)))
 
-;; (defn pvals "Returns an element's vals."
-;;   [elem] (for [k (pkeys elem)] (pget k)))
+(defn pvals "Returns an element's vals."
+  [^Element elem] (map #(pget elem %) (pkeys elem)))
 
-;; (defn as-map "Transforms an element to a Clojure hash-map."
-;;   [elem] (apply hash-map (reduce concat (for [k (pkeys elem)] [k (pget elem k)]))))
+(defn as-map "Transforms an element to a Clojure hash-map."
+  [elem] (into {} (map #(vector % (pget elem %)) (pkeys elem))))
 
 ;; ; Transactions
 ;; (def +tx-success+ TransactionalGraph$Conclusion/SUCCESS)
