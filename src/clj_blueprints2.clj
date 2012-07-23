@@ -57,17 +57,16 @@
 (defn as-map "Transforms an element to a Clojure hash-map."
   [^Element elem] (into {} (map #(vector % (pget elem %)) (pkeys elem))))
 
-;; ; Transactions
-;; (def +tx-success+ TransactionalGraph$Conclusion/SUCCESS)
-;; (def +tx-failure+ TransactionalGraph$Conclusion/FAILURE)
+; Transactions
+(def +tx-success+ TransactionalGraph$Conclusion/SUCCESS)
+(def +tx-failure+ TransactionalGraph$Conclusion/FAILURE)
 
-;; (defmacro with-tx "Evaluates the given forms inside a transaction."
-;;   [& forms]
-;;   `(do (.startTransaction *db*)
-;;      (try
-;;        (let [r# (do ~@forms)] (.stopTransaction *db* +tx-success+) r#)
-;;        (catch Exception ~'e (.stopTransaction *db* +tx-failure+) (throw ~'e)))))
-
+(defmacro with-tx "Evaluates the given forms inside a transaction."
+  [& forms]
+  `(do (.startTransaction *db*)
+     (try
+       (let [r# (do ~@forms)] (.stopTransaction *db* +tx-success+) r#)
+       (catch Exception ~'e (.stopTransaction *db* +tx-failure+) (throw ~'e)))))
 
 ; Graph fns
 (defmacro with-db "Evaluates the given forms with the given Graph DB bound to *db*."
@@ -155,131 +154,131 @@
 
 (defn unlink! "Removes the edge between two vertices." [v1 v2] (remove! (get-link v1 v2)))
 
-;; ; Indexes
-;; (defn create-automatic-index! ""
-;;   [kname class keys]
-;;   (.createAutomaticIndex *db* (name kname) class (->> keys seq (map name) (apply hash-set))))
+(defn- sym-to-class [s]
+  (condp = s
+    :vertices Vertex
+    :vertex Vertex
+    :edges Edge
+    :edge Edge
+    Vertex Vertex
+    Edge Edge))
 
-;; (defn create-manual-index! ""
-;;   [kname class]
-;;   (.createManualIndex *db* (name kname) class))
+; Indexes
+(defn create-key-index! ""
+  [kname class]
+  (.createKeyIndex *db* (name kname) (sym-to-class class)))
 
-;; (defn get-index "" [kname class] (let [class (case class :vertices Index/VERTICES, :edges Index/EDGES)] (.getIndex *db* (name kname) class)))
+(defn get-key-indices ""
+  [class]
+  (.getIndexedKeys *db* (sym-to-class class)))
 
-;; (defn get-indices "Returns the indices of the graph."
-;;   [] (.getIndices *db*))
+(defn create-index! ""
+  [kname class]
+  (.createIndex *db* (name kname) (sym-to-class class) (into-array Parameter [])))
 
-;; (defn drop-index! "" [kname] (.dropIndex *db* (name kname)))
+(defn get-indices "Returns the indices of the graph."
+  [] (.getIndices *db*))
 
-;; (defn index-class "" [i] (.getIndexClass i))
+(defn get-index "" [kname class]
+  (.getIndex *db* (name kname) (sym-to-class class)))
 
-;; (defn index-name "" [i] (.getIndexName i))
+(defn drop-index! "" [kname] (.dropIndex *db* (name kname)))
 
-;; (defn index-type
-;;   "Returns whether the given index is :automatic or :manual."
-;;   [i]
-;;   (get {Index$Type/AUTOMATIC :automatic, Index$Type/MANUAL :manual}
-;;        (.getIndexType i)))
+(defn index-class "" [i] (.getIndexClass i))
 
-;; (defn iget "Gets an element from an index."
-;;   [index key val]
-;;   (.get index (name key) val))
+(defn index-name "" [i] (.getIndexName i))
 
-;; (defn iput "Puts an element from an index."
-;;   [index key val element]
-;;   (.put index key val element))
 
-;; (defn iremove "Removes an element from an index."
-;;   [index key val element]
-;;   (.remove index key val element))
+(defn iget "Gets an element from an index."
+  [index key val]
+  (.get index (name key) val))
 
-;; ; Read-Only
-;; (defn as-read-only
-;; "When called with no arguments, this fn sets *db* to be a read-only version of itself.
-;; When called with one argument (Graph, Vertex, Edge or Index), it returns a read only version of it."
-;;   ([] (set-db! (ReadOnlyGraph. *db*)))
-;;   ([item] (condp = (class item)
-;;             Graph (ReadOnlyGraph. item)
-;;             Vertex (ReadOnlyVertex. item)
-;;             Edge (ReadOnlyEdge. item)
-;;             Index (ReadOnlyIndex. item))))
+(defn iput "Puts an element from an index."
+  [index key val element]
+  (.put index key val element))
 
-;; ; GraphML
-;; (defn migrate-graph! "" [g1 g2] (GraphMigrator/migrateGraph g1 g2))
+(defn iremove "Removes an element from an index."
+  [index key val element]
+  (.remove index key val element))
 
-;; (defn read-graph-ml!
-;;   "Reads GraphML formatted data into the current *db*.
-;; All the keys are optional."
-;;   [input-stream & {:keys [buffer-size vertex-id-key edge-id-key edge-label-key]}]
-;;   (let [gr (doto (GraphMLReader. *db*)
-;;              (.setVertexIdKey (name vertex-id-key))
-;;              (.setEdgeIdKey (name edge-id-key))
-;;              (.setEdgeLabelKey (name edge-label-key)))]
-;;     (if buffer-size
-;;       (.inputGraph gr input-stream buffer-size)
-;;       (.inputGraph gr input-stream))))
+; Read-Only
+(defn as-read-only
+"When called with no arguments, this fn sets *db* to be a read-only version of itself.
+When called with one argument (Graph, Vertex, Edge or Index), it returns a read only version of it."
+  ([] (set-db! (ReadOnlyGraph. *db*)))
+  ([item] (condp instance? item
+            Graph (ReadOnlyGraph. item))))
 
-;; (defn write-graph-ml!
-;;   "Writes GraphML formatted data from the current *db*.
-;; All the keys are optional."
-;;   [out-stream & {:keys [vertex-types edge-types normalize]}]
-;;   (doto (GraphMLWriter. *db*)
-;;     (.setVertexKeyTypes (walk/stringify-keys vertex-types))
-;;     (.setEdgeKeyTypes (walk/stringify-keys vertex-types))
-;;     (.setNormalize (boolean normalize))
-;;     (.outputGraph out-stream)))
+; GraphML
+(defn migrate-graph! "" [g1 g2] (GraphMigrator/migrateGraph g1 g2))
 
-;; ; GraphSON
-;; (defn read-graph-json! "Reads GraphSON formatted data into the current *db*."
-;;   ([input-stream] (GraphSONReader/inputGraph *db* input-stream))
-;;   ([input-stream buffer-size] (GraphSONReader/inputGraph *db* input-stream buffer-size)))
+(defn read-graph-ml!
+  "Reads GraphML formatted data into the current *db*.
+All the keys are optional."
+  [input-stream & {:keys [buffer-size vertex-id-key edge-id-key edge-label-key]}]
+  (let [gr (GraphMLReader. *db*)]
+    (when vertex-id-key (.setVertexIdKey gr (name vertex-id-key)))
+    (when edge-id-key (.setEdgeIdKey gr (name edge-id-key)))
+    (when edge-label-key (.setEdgeLabelKey gr (name edge-label-key)))
+    (if buffer-size
+      (.inputGraph gr input-stream buffer-size)
+      (.inputGraph gr input-stream))))
 
-;; (defn write-graph-json!
-;;   "Writes GraphSON formatted data from the current *db*.
-;; All the keys are optional."
-;;   [out-stream & {:keys [vertex-props edge-props show-types]}]
-;;   (GraphSONWriter/outputGraph *db* out-stream (map name edge-props) (map name vertex-props) (boolean show-types)))
+(defn write-graph-ml!
+  "Writes GraphML formatted data from the current *db*.
+All the keys are optional."
+  [out-stream & {:keys [vertex-types edge-types normalize]}]
+  (doto (GraphMLWriter. *db*)
+    (.setVertexKeyTypes (walk/stringify-keys vertex-types))
+    (.setEdgeKeyTypes (walk/stringify-keys edge-types))
+    (.setNormalize (boolean normalize))
+    (.outputGraph out-stream)))
 
-;; ; Graph Event Listeners
-;; (defn graph-listener
-;;   "Creates a GraphChangedListener object by being passed a hash-map of functions to be used. All the functions are optional.
-;; Notation: vx = vertex; e = edge; k = key; v = val
-;; Signatures:
-;; edge-add [e]
-;; edge-prop-changed[e k v]
-;; edge-prop-remove [e k v]
-;; edge-remove [e]
-;; vertex-add [vx]
-;; vertex-prop-changed [vx k v]
-;; vertex-prop-remove [vx k v]
-;; vertex-remove [vx]
-;; graph-cleared []"
-;;   [{:keys [edge-add edge-prop-changed edge-prop-remove edge-remove
-;;            vertex-add vertex-prop-changed vertex-prop-remove vertex-remove
-;;            graph-cleared]}]
-;;   (reify GraphChangedListener
-;;     (edgeAdded [_ e] (if edge-add (edge-add e)))
-;;     (edgePropertyChanged [_ e k v] (if edge-prop-changed (edge-prop-changed e k v)))
-;;     (edgePropertyRemoved [_ e k v] (if edge-prop-remove (edge-prop-remove e k v)))
-;;     (edgeRemoved [_ e] (if edge-remove (edge-remove e)))
-;;     (vertexAdded [_ vx] (if vertex-add (vertex-add vx)))
-;;     (vertexPropertyChanged [_ vx k v] (if vertex-prop-changed (vertex-prop-changed vx k v)))
-;;     (vertexPropertyRemoved [_ vx k v] (if vertex-prop-remove (vertex-prop-remove vx k v)))
-;;     (vertexRemoved [_ vx] (if vertex-remove (vertex-remove vx)))
-;;     (graphCleared [_] (if graph-cleared (graph-cleared)))
-;;     ))
+; GraphSON
+(defn read-graph-json! "Reads GraphSON formatted data into the current *db*."
+  ([input-stream] (GraphSONReader/inputGraph *db* input-stream))
+  ([input-stream buffer-size] (GraphSONReader/inputGraph *db* input-stream buffer-size)))
 
-;; (defn event-graph "" [graph] (EventGraph. graph))
+(defn write-graph-json!
+  "Writes GraphSON formatted data from the current *db*.
+All the keys are optional."
+  [out-stream & {:keys [vertex-props edge-props show-types]}]
+  (GraphSONWriter/outputGraph *db* out-stream (map name edge-props) (map name vertex-props) (boolean show-types)))
 
-;; (defn add-listener
-;;   "Adds a listener to an EventGraph.
-;; Can be passed either a GraphChangedListener or a hash-map that is compatible with graph-listener."
-;;   [g l] (.addListener g (if (map? l) (graph-listener l) l)))
+; Graph Event Listeners
+(defn graph-listener
+  "Creates a GraphChangedListener object by being passed a hash-map of functions to be used. All the functions are optional.
+Notation: vx = vertex; e = edge; k = key; v = val
+Signatures:
+edge-add [e]
+edge-prop-changed[e k v]
+edge-prop-remove [e k v]
+edge-remove [e]
+vertex-add [vx]
+vertex-prop-changed [vx k v]
+vertex-prop-remove [vx k v]
+vertex-remove [vx]"
+  [& {:keys [edge-add edge-prop-changed edge-prop-remove edge-remove
+             vertex-add vertex-prop-changed vertex-prop-remove vertex-remove]}]
+  (reify GraphChangedListener
+    (edgeAdded [_ e] (if edge-add (edge-add e)))
+    (edgePropertyChanged [_ e k v] (if edge-prop-changed (edge-prop-changed e k v)))
+    (edgePropertyRemoved [_ e k v] (if edge-prop-remove (edge-prop-remove e k v)))
+    (edgeRemoved [_ e] (if edge-remove (edge-remove e)))
+    (vertexAdded [_ vx] (if vertex-add (vertex-add vx)))
+    (vertexPropertyChanged [_ vx k v] (if vertex-prop-changed (vertex-prop-changed vx k v)))
+    (vertexPropertyRemoved [_ vx k v] (if vertex-prop-remove (vertex-prop-remove vx k v)))
+    (vertexRemoved [_ vx] (if vertex-remove (vertex-remove vx)))
+    ))
 
-;; (defn get-raw-graph "Returns the graph wrapped by an EventGraph."
-;;   [eg] (.getRawGraph eg))
+(defn event-graph "" [graph] (EventGraph. graph))
 
-;; ; TinkerGraph
-;; (defn tinker-graph ""
-;;   ([] (TinkerGraph.))
-;;   ([dir] (TinkerGraph. dir)))
+(defn add-listener
+  "Adds a listener to an EventGraph.
+Can be passed either a GraphChangedListener or a hash-map that is compatible with graph-listener."
+  [g l] (.addListener g (if (map? l) (apply graph-listener (flatten l)) l)))
+
+; TinkerGraph
+(defn tinker-graph ""
+  ([] (TinkerGraph.))
+  ([dir] (TinkerGraph. dir)))

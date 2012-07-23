@@ -7,5 +7,8 @@
             :comments "same as Clojure"}
   :dependencies [[org.clojure/clojure "1.4.0"]
                  [com.tinkerpop.blueprints/blueprints-core "2.0.0"]]
-  :dev-dependencies [[midje "1.4.0"]]
+  :dev-dependencies [[midje "1.4.0"]
+                     [clj-json "0.5.0"]
+                     [com.tinkerpop.blueprints/blueprints-neo4j-graph "2.0.0"]
+                     [fs "1.1.2" :exclusions [org.clojure/clojure]]]
   )
