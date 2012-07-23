@@ -1,7 +1,7 @@
 ;; Copyright (C) 2011, Eduardo Julián. All rights reserved.
 ;; Copyright (C) 2012, Ola Bini. All rights reserved.
 ;;
-;; The use and distribution terms for this software are covered by the 
+;; The use and distribution terms for this software are covered by the
 ;; Eclipse Public License 1.0
 ;; (http://opensource.org/licenses/eclipse-1.0.php) which can be found
 ;; in the file epl-v10.html at the root of this distribution.
@@ -15,7 +15,7 @@
       :author ["Eduardo Julián", "Ola Bini"]}
   clj-blueprints2
   (:import
-   (com.tinkerpop.blueprints Graph Element Vertex Edge TransactionalGraph TransactionalGraph$Conclusion IndexableGraph Index Parameter)
+   (com.tinkerpop.blueprints Graph Element Vertex Edge TransactionalGraph TransactionalGraph$Conclusion IndexableGraph Index Parameter Direction)
    (com.tinkerpop.blueprints.util.wrappers.readonly ReadOnlyGraph ReadOnlyIndexableGraph)
    (com.tinkerpop.blueprints.util.io.graphml GraphMigrator GraphMLReader GraphMLWriter)
    (com.tinkerpop.blueprints.util.io.graphson GraphSONReader GraphSONWriter)
@@ -68,84 +68,92 @@
 ;;        (let [r# (do ~@forms)] (.stopTransaction *db* +tx-success+) r#)
 ;;        (catch Exception ~'e (.stopTransaction *db* +tx-failure+) (throw ~'e)))))
 
-;; (defn get-max-buffer-size "Get Max Transaction Buffer Size" [] (.getMaxBufferSize *db*))
-;; (defn set-max-buffer-size "Set Max Transaction Buffer Size" [buffer-size] (.setMaxBufferSize *db* buffer-size))
-;; (defn current-buffer-size "Current Transaction Buffer Size" [] (.getCurrentBufferSize *db*))
 
-;; ; Graph fns
-;; (defmacro with-db "Evaluates the given forms with the given Graph DB bound to *db*."
-;;   [graph-db & forms]
-;;   `(binding [*db* ~graph-db] ~@forms))
+; Graph fns
+(defmacro with-db "Evaluates the given forms with the given Graph DB bound to *db*."
+  [graph-db & forms]
+  `(binding [*db* ~graph-db] ~@forms))
 
-;; (defn set-db! "Given a Graph instance (like OrientGraph, TinkerGraph, etc), sets it as the global DB."
-;;   [graph-db]
-;;   (alter-var-root #'*db* (fn [_] graph-db))
-;;   graph-db)
+(defn set-db! "Given a Graph instance (like OrientGraph, TinkerGraph, etc), sets it as the global DB."
+  [graph-db]
+  (alter-var-root #'*db* (fn [_] graph-db))
+  graph-db)
 
-;; (defn shutdown! "" [] (.shutdown *db*))
+(defn shutdown! "" [] (.shutdown *db*))
 
-;; (defn clear! "Clears *db* of all nodes and edges." [] (.clear *db*))
+(defn clear! "Clears *db* of all nodes and edges." [] (.clear *db*))
 
-;; (defn get-vertices "Returns all the vertices."
-;;   [] (.getVertices *db*))
+(defn get-vertices "Returns all the vertices."
+  [] (.getVertices *db*))
 
-;; (defn get-edges "Returns all the edges."
-;;   [] (.getEdges *db*))
+(defn get-edges "Returns all the edges."
+  [] (.getEdges *db*))
 
-;; (defn load-vertex "" [id] (.getVertex *db* id))
+(defn load-vertex "" [id] (.getVertex *db* id))
 
-;; (defn load-edge "" [id] (.getEdge *db* id))
+(defn load-edge "" [id] (.getEdge *db* id))
 
-;; (defn vertex
-;;   "Adds a vertex to the database. If given a hash-map, sets the properties of the vertex."
-;;   ([id props] (let [v (.addVertex *db* id)] (when props (apply passoc! v (interleave (map name (keys props)) (vals props)))) v))
-;;   ([id] (if-not (map? id) (.addVertex *db* id) (vertex nil id)))
-;;   ([] (.addVertex *db* nil)))
+(defn vertex
+  "Adds a vertex to the database. If given a hash-map, sets the properties of the vertex."
+  ([id props] (let [v (.addVertex *db* id)]
+                (when (and props (not (empty? props)))
+                  (apply passoc! v (reduce (fn [res [k v]] (cons (name k) (cons v res))) [] props)))
+                  v))
+  ([id] (if (map? id) (vertex nil id) (.addVertex *db* id)))
+  ([] (.addVertex *db* nil)))
 
-;; (defn link!
-;;   "Adds an edge between vertex1 and vertex 2 given a vector like [label props-map]. The label must be a keyword and props-map can be nil."
-;;   ([id v1 label props v2] (let [e (.addEdge *db* id v1 v2 (name label))] (when props (apply passoc! e (apply concat (seq props)))) e))
-;;   ([v1 label props v2] (link! nil v1 label props v2))
-;;   ([v1 label v2] (link! nil v1 label nil v2)))
+(defn link!
+  "Adds an edge between vertex1 and vertex 2 given a vector like [label props-map]. The label must be a keyword and props-map can be nil."
+  ([id v1 label props v2] (let [e (.addEdge *db* id v1 v2 (name label))] (when props (apply passoc! e (apply concat (seq props)))) e))
+  ([v1 label props v2] (link! nil v1 label props v2))
+  ([v1 label v2] (link! nil v1 label nil v2)))
 
-;; (defn remove! "Removes either a vertex or an edge from the Graph."
-;;   [elem]
-;;   (cond
-;;     (isa? (class elem) Vertex) (.removeVertex *db* elem)
-;;     (isa? (class elem) Edge) (.removeEdge *db* elem)))
+(defn remove! "Removes either a vertex or an edge from the Graph."
+  [elem]
+  (cond
+    (instance? Vertex elem) (.removeVertex *db* elem)
+    (instance? Edge elem)   (.removeEdge   *db* elem)
+    :else (println (str "OHO NO " (class elem)))))
 
-;; ; Vertex fns
-;; (defn get-edges "Gets the edges from a vertex given the direction (:in or :out) and an optional filtering label (as a keyword)."
-;;   ([vertex dir] (case dir :in (.getInEdges vertex), :out (.getOutEdges vertex), :both (concat (.getInEdges vertex) (.getOutEdges vertex))))
-;;   ([vertex dir label] (filter #(= (.getLabel %) (name label)) (case dir :in (.getInEdges vertex), :out (.getOutEdges vertex), :both (concat (.getInEdges vertex) (.getOutEdges vertex))))))
+; Vertex fns
+(defn get-edges "Gets the edges from a vertex given the direction (:in or :out) and an optional filtering label (as a keyword)."
+  ([] (.getEdges *db*))
+  ([vertex dir] (case dir
+                  :in (.getEdges vertex Direction/IN (into-array String []))
+                  :out (.getEdges vertex Direction/OUT (into-array String []))
+                  :both (.getEdges vertex Direction/BOTH (into-array String []))))
+  ([vertex dir label] (filter #(= (.getLabel %) (name label)) (case dir
+                                                                :in (.getEdges vertex Direction/IN (into-array String []))
+                                                                :out (.getEdges vertex Direction/OUT (into-array String []))
+                                                                :both (.getEdges vertex Direction/BOTH (into-array String []))))))
 
-;; ; Edge fns.
-;; (defn get-vertex "Gets the :in or :out vertex from an edge."
-;;   [edge dir] (case dir :in (.getInVertex edge), :out (.getOutVertex edge)))
+; Edge fns.
+(defn get-vertex "Gets the :in or :out vertex from an edge."
+  [edge dir] (case dir :in (.getVertex edge Direction/IN), :out (.getVertex edge Direction/OUT)))
 
-;; (defn get-label "" [edge] (.getLabel edge))
+(defn get-label "" [edge] (.getLabel edge))
 
-;; (defn get-ends
-;;   "In case you don't want to get the edges that meet a requirement but the vertices at the end of those, use get-ends just like get-edges."
-;;   ([vertex dir label]
-;;    (if (= :both dir)
-;;      (concat (get-ends vertex :in label) (get-ends vertex :out label))
-;;      (map #(get-vertex % (case dir :in :out, :out :in)) (get-edges vertex dir label))))
-;;   ([vertex dir]
-;;    (if (= :both dir)
-;;      (concat (get-ends vertex :in) (get-ends vertex :out))
-;;      (map #(get-vertex % (case dir :in :out, :out :in)) (get-edges vertex dir)))))
+(defn get-ends
+  "In case you don't want to get the edges that meet a requirement but the vertices at the end of those, use get-ends just like get-edges."
+  ([vertex dir label]
+   (if (= :both dir)
+     (concat (get-ends vertex :in label) (get-ends vertex :out label))
+     (map #(get-vertex % (case dir :in :out, :out :in)) (get-edges vertex dir label))))
+  ([vertex dir]
+   (if (= :both dir)
+     (concat (get-ends vertex :in) (get-ends vertex :out))
+     (map #(get-vertex % (case dir :in :out, :out :in)) (get-edges vertex dir)))))
 
-;; (defn get-link
-;;   "If vertex1 and vertex2 are connected by an edge, it returns that edge."
-;;   [v1 v2]
-;;   (or (some #(when (= v2 (get-vertex % :out)) %) (get-edges v1 :in))
-;;     (some #(when (= v2 (get-vertex % :in)) %) (get-edges v1 :out))))
+(defn get-link
+  "If vertex1 and vertex2 are connected by an edge, it returns that edge."
+  [v1 v2]
+  (or (some #(when (= v2 (get-vertex % :out)) %) (get-edges v1 :in))
+    (some #(when (= v2 (get-vertex % :in)) %) (get-edges v1 :out))))
 
-;; (defn linked? "Tells whether or not two vertices have an edge between them."
-;;   [v1 v2] (if (get-link v1 v2) true false))
+(defn linked? "Tells whether or not two vertices have an edge between them."
+  [v1 v2] (if (get-link v1 v2) true false))
 
-;; (defn unlink! "Removes the edge between two vertices." [v1 v2] (remove! (get-link v1 v2)))
+(defn unlink! "Removes the edge between two vertices." [v1 v2] (remove! (get-link v1 v2)))
 
 ;; ; Indexes
 ;; (defn create-automatic-index! ""
@@ -238,7 +246,7 @@
 ;; Notation: vx = vertex; e = edge; k = key; v = val
 ;; Signatures:
 ;; edge-add [e]
-;; edge-prop-changed[e k v] 
+;; edge-prop-changed[e k v]
 ;; edge-prop-remove [e k v]
 ;; edge-remove [e]
 ;; vertex-add [vx]
