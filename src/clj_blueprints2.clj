@@ -143,22 +143,22 @@
       (instance? Vertex elem) (.removeVertex db elem)
       (instance? Edge elem)   (.removeEdge   db elem))))
 
+(def edge-directions {
+                      :in Direction/IN
+                      :out Direction/OUT
+                      :both Direction/BOTH
+                      })
+
 ; Vertex fns
 (defn get-edges "Gets the edges from a vertex given the direction (:in or :out) and an optional filtering label (as a keyword)."
   ([] (get-edges *db*))
   ([db] (.getEdges db))
-  ([vertex dir] (case dir
-                  :in (.getEdges vertex Direction/IN (into-array String []))
-                  :out (.getEdges vertex Direction/OUT (into-array String []))
-                  :both (.getEdges vertex Direction/BOTH (into-array String []))))
-  ([vertex dir label] (filter #(= (.getLabel %) (name label)) (case dir
-                                                                :in (.getEdges vertex Direction/IN (into-array String []))
-                                                                :out (.getEdges vertex Direction/OUT (into-array String []))
-                                                                :both (.getEdges vertex Direction/BOTH (into-array String []))))))
+  ([vertex dir] (.getEdges vertex (edge-directions dir) (into-array String [])))
+  ([vertex dir label] (.getEdges vertex (edge-directions dir) (into-array String [(name label)]))))
 
 ; Edge fns.
 (defn get-vertex "Gets the :in or :out vertex from an edge."
-  [edge dir] (case dir :in (.getVertex edge Direction/IN), :out (.getVertex edge Direction/OUT)))
+  [edge dir] (.getVertex edge (edge-directions dir)))
 
 (defn get-label "" [edge] (.getLabel edge))
 
@@ -184,14 +184,13 @@
 
 (defn unlink! "Removes the edge between two vertices." [v1 v2] (remove! (get-link v1 v2)))
 
-(defn- sym-to-class [s]
-  (condp = s
-    :vertices Vertex
-    :vertex Vertex
-    :edges Edge
-    :edge Edge
-    Vertex Vertex
-    Edge Edge))
+(def sym-to-class {
+                   :vertices Vertex
+                   :vertex Vertex
+                   :edges Edge
+                   :edge Edge
+                   Vertex Vertex
+                   Edge Edge})
 
 ; Indexes
 (defn create-key-index! ""
