@@ -186,25 +186,37 @@
     (let [g2 (TinkerGraphFactory/createTinkerGraph)]
       (with-db g2
         (clear!)
-        (.getVertices g2)) => empty?))
+        (.getVertices g2)) => empty?)
+    (let [g2 (TinkerGraphFactory/createTinkerGraph)]
+      (clear! g2)
+      (.getVertices g2)) => empty?)
 
   (facts "about get-vertices"
     (with-db g
-      (map get-id (get-vertices))) => ["19" "11" "12" "3" "20" "2" "1" "10" "0" "7" "6" "5" "4" "9" "8"])
+      (map get-id (get-vertices))) => ["19" "11" "12" "3" "20" "2" "1" "10" "0" "7" "6" "5" "4" "9" "8"]
+    (map get-id (get-vertices g)) => ["19" "11" "12" "3" "20" "2" "1" "10" "0" "7" "6" "5" "4" "9" "8"]
+      )
 
   (facts "about get-edges"
     (with-db g
-      (map get-id (get-edges))) => ["22" "17" "18" "15" "16" "13" "14" "11" "12" "21" "10" "1" "7" "9" "8"])
+      (map get-id (get-edges))) => ["22" "17" "18" "15" "16" "13" "14" "11" "12" "21" "10" "1" "7" "9" "8"]
+    (map get-id (get-edges g)) => ["22" "17" "18" "15" "16" "13" "14" "11" "12" "21" "10" "1" "7" "9" "8"]
+    )
 
   (facts "about load-vertex"
     (with-db g
       (as-map (load-vertex 12)) => {:foo 42
-                                    :bar 55}))
+                                    :bar 55})
+    (as-map (load-vertex g 12)) => {:foo 42
+                                    :bar 55}
+    )
 
   (facts "about load-edge"
     (with-db g
       (as-map (load-edge 17)) => {:foo :bar
-                                  :bar :ofo}))
+                                  :bar :ofo})
+    (as-map (load-edge g 17)) => {:foo :bar
+                                  :bar :ofo})
 
   (facts "about vertex"
     (with-db (TinkerGraphFactory/createTinkerGraph)
@@ -213,7 +225,15 @@
       (as-map (vertex {:foo 14 :bar 53})) => {:foo 14 :bar 53}
       (get-id (vertex 43 {})) => "43"
       (get-id (vertex 45 nil)) => "45"
-      (as-map (vertex 44 {:aba 15})) => {:aba 15}))
+      (as-map (vertex 44 {:aba 15})) => {:aba 15})
+
+    (let [g (TinkerGraphFactory/createTinkerGraph)]
+      (vertex g) => (fn [other] (instance-of Vertex))
+      (get-id (vertex g 42)) => "42"
+      (as-map (vertex g nil {:foo 14 :bar 53})) => {:foo 14 :bar 53}
+      (get-id (vertex g 43 {})) => "43"
+      (get-id (vertex g 45 nil)) => "45"
+      (as-map (vertex g 44 {:aba 15})) => {:aba 15}))
 
   (facts "about link!"
     (let [g2 (TinkerGraphFactory/createTinkerGraph)
@@ -226,7 +246,18 @@
         (.getVertex (link! v1 :foo v2) Direction/OUT) => v1
         (as-map (link! v1 :bar {:blarg 55} v2)) => {:blarg 55}
         (get-id (link! 54465 v1 :quux {:blarg 4354} v2)) => "54465"
-        )))
+        ))
+
+    (let [g2 (TinkerGraphFactory/createTinkerGraph)
+          vs (.getVertices g2)
+          v1 (first vs)
+          v2 (second vs)]
+      (.getLabel (link! g2 v1 :foo v2)) => "foo"
+      (.getVertex (link! g2 v1 :foo v2) Direction/IN) => v2
+      (.getVertex (link! g2 v1 :foo v2) Direction/OUT) => v1
+      (as-map (link! g2 v1 :bar {:blarg 55} v2)) => {:blarg 55}
+      (get-id (link! g2 54465 v1 :quux {:blarg 4354} v2)) => "54465"
+      ))
 
   (facts "about remove!"
     (let [g2 (TinkerGraphFactory/createTinkerGraph)
@@ -237,7 +268,16 @@
           (.getVertex g2 (get-id v))) => nil
         (do (remove! e)
           (.getEdge g2 (get-id e))) => nil
-          )))
+          ))
+    (let [g2 (TinkerGraphFactory/createTinkerGraph)
+          v (first (.getVertices g2))
+          e (first (.getEdges g2))]
+      (do (remove! g2 v)
+          (.getVertex g2 (get-id v))) => nil
+      (do (remove! g2 e)
+          (.getEdge g2 (get-id e))) => nil
+          )
+    )
 
   (facts "about get-label"
     (get-label first-edge) => "created"
@@ -312,6 +352,15 @@
     (create-key-index! :blarg Edge)
     (create-key-index! :cho Edge)
     (seq (get-key-indices Edge)) => ["blarg" "cho"]
+
+    (let [g2 (TinkerGraphFactory/createTinkerGraph)]
+      (create-key-index! g2 :name Vertex)
+      (seq (get-key-indices g2 Vertex)) => ["name"]
+
+      (create-key-index! g2 :blarg Edge)
+      (create-key-index! g2 :cho Edge)
+      (seq (get-key-indices g2 Edge)) => ["blarg" "cho"]
+      )
     )
 
   (facts "about create-index! and get-indices"
@@ -319,11 +368,23 @@
           ix2 (create-index! :blue Vertex)]
       (seq (get-indices)) => (just #{ix ix2})
 
-      (let [ix3  (create-index! :fox2 Edge)
+      (let [ix3 (create-index! :fox2 Edge)
             ix4 (create-index! :blue2 Edge)
             ix5 (create-index! :green4 Edge)
             ]
-        (seq (get-indices)) => (just #{ix ix2 ix3 ix4 ix5}))))
+        (seq (get-indices)) => (just #{ix ix2 ix3 ix4 ix5})))
+
+    (let [g2 (TinkerGraphFactory/createTinkerGraph)
+          ix  (create-index! g2 :fox Vertex)
+          ix2 (create-index! g2 :blue Vertex)]
+      (seq (get-indices g2)) => (just #{ix ix2})
+
+      (let [ix3 (create-index! g2 :fox2 Edge)
+            ix4 (create-index! g2 :blue2 Edge)
+            ix5 (create-index! g2 :green4 Edge)
+            ]
+        (seq (get-indices g2)) => (just #{ix ix2 ix3 ix4 ix5})))
+    )
 
   (facts "about get-index"
     (let [ix (create-index! :flo Vertex)]
@@ -331,6 +392,14 @@
 
     (let [ix  (create-index! :mux Edge)]
       (get-index :mux Edge) => ix)
+
+    (let [g2 (TinkerGraphFactory/createTinkerGraph)]
+      (let [ix (create-index! g2 :flo Vertex)]
+        (get-index g2 :flo Vertex) => ix)
+
+      (let [ix  (create-index! g2 :mux Edge)]
+        (get-index g2 :mux Edge) => ix)
+      )
     )
 
   (facts "about drop-index!"
@@ -341,6 +410,15 @@
     (let [ix (create-index! :lof Edge)]
       (drop-index! :lof)
       (get-index :lof Edge) => nil)
+
+    (let [g2 (TinkerGraphFactory/createTinkerGraph)]
+      (let [ix (create-index! g2 :flo2 Vertex)]
+        (drop-index! g2 :flo2)
+        (get-index g2 :flo2 Vertex) => nil)
+
+      (let [ix (create-index! g2 :lof Edge)]
+        (drop-index! g2 :lof)
+        (get-index g2 :lof Edge) => nil))
     )
 
   (facts "about index-class"

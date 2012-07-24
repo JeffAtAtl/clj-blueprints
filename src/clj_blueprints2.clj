@@ -78,45 +78,75 @@
   (alter-var-root #'*db* (fn [_] graph-db))
   graph-db)
 
-(defn shutdown! "" [] (.shutdown *db*))
+(defn shutdown! ""
+  ([] (shutdown! *db*))
+  ([db] (.shutdown db)))
 
-(defn clear! "Clears *db* of all nodes and edges." [] (.clear *db*))
+(defn clear! "Clears *db* of all nodes and edges."
+  ([] (clear! *db*))
+  ([db] (.clear db)))
 
 (defn get-vertices "Returns all the vertices."
-  [] (.getVertices *db*))
+  ([] (get-vertices *db*))
+  ([db] (.getVertices db)))
 
 (defn get-edges "Returns all the edges."
-  [] (.getEdges *db*))
+  ([] (get-edges *db*))
+  ([db] (.getEdges db)))
 
-(defn load-vertex "" [id] (.getVertex *db* id))
+(defn load-vertex ""
+  ([id] (load-vertex *db* id))
+  ([db id] (.getVertex db id)))
 
-(defn load-edge "" [id] (.getEdge *db* id))
+(defn load-edge ""
+  ([id] (load-edge *db* id))
+  ([db id] (.getEdge db id)))
 
 (defn vertex
   "Adds a vertex to the database. If given a hash-map, sets the properties of the vertex."
-  ([id props] (let [v (.addVertex *db* id)]
-                (when (and props (not (empty? props)))
-                  (apply passoc! v (reduce (fn [res [k v]] (cons (name k) (cons v res))) [] props)))
-                  v))
-  ([id] (if (map? id) (vertex nil id) (.addVertex *db* id)))
-  ([] (.addVertex *db* nil)))
+  ([db id props]
+     (let [v (.addVertex db id)]
+       (when (and props (not (empty? props)))
+         (apply passoc! v (reduce (fn [res [k v]] (cons (name k) (cons v res))) [] props)))
+       v))
+  ([id props]
+     (if (instance? Graph id)
+       (vertex id props nil)
+       (vertex *db* id props)))
+  ([id]
+     (cond
+       (map? id) (vertex *db* nil id)
+       (instance? Graph id) (vertex id nil nil)
+       :else (vertex *db* id nil)))
+  ([] (vertex *db* nil nil)))
 
 (defn link!
   "Adds an edge between vertex1 and vertex 2 given a vector like [label props-map]. The label must be a keyword and props-map can be nil."
-  ([id v1 label props v2] (let [e (.addEdge *db* id v1 v2 (name label))] (when props (apply passoc! e (apply concat (seq props)))) e))
-  ([v1 label props v2] (link! nil v1 label props v2))
-  ([v1 label v2] (link! nil v1 label nil v2)))
+  ([db id v1 label props v2]
+     (let [e (.addEdge db id v1 v2 (name label))]
+       (when props (apply passoc! e (apply concat (seq props))))
+       e))
+  ([id-or-db v1 label props v2]
+     (if (instance? Graph id-or-db)
+       (link! id-or-db nil v1 label props v2)
+       (link! *db* id-or-db v1 label props v2)))
+  ([v1-or-db label props v2]
+     (if (instance? Graph v1-or-db)
+       (link! v1-or-db nil label    props nil   v2)
+       (link! *db*     nil v1-or-db label props v2)))
+  ([v1 label v2] (link! *db* nil v1 label nil v2)))
 
 (defn remove! "Removes either a vertex or an edge from the Graph."
-  [elem]
-  (cond
-    (instance? Vertex elem) (.removeVertex *db* elem)
-    (instance? Edge elem)   (.removeEdge   *db* elem)
-    :else (println (str "OHO NO " (class elem)))))
+  ([elem] (remove! *db* elem))
+  ([db elem]
+     (cond
+      (instance? Vertex elem) (.removeVertex db elem)
+      (instance? Edge elem)   (.removeEdge   db elem))))
 
 ; Vertex fns
 (defn get-edges "Gets the edges from a vertex given the direction (:in or :out) and an optional filtering label (as a keyword)."
-  ([] (.getEdges *db*))
+  ([] (get-edges *db*))
+  ([db] (.getEdges db))
   ([vertex dir] (case dir
                   :in (.getEdges vertex Direction/IN (into-array String []))
                   :out (.getEdges vertex Direction/OUT (into-array String []))
@@ -165,24 +195,28 @@
 
 ; Indexes
 (defn create-key-index! ""
-  [kname class]
-  (.createKeyIndex *db* (name kname) (sym-to-class class)))
+  ([kname class] (create-key-index! *db* kname class))
+  ([db kname class] (.createKeyIndex db (name kname) (sym-to-class class))))
 
 (defn get-key-indices ""
-  [class]
-  (.getIndexedKeys *db* (sym-to-class class)))
+  ([class] (get-key-indices *db* class))
+  ([db class] (.getIndexedKeys db (sym-to-class class))))
 
 (defn create-index! ""
-  [kname class]
-  (.createIndex *db* (name kname) (sym-to-class class) (into-array Parameter [])))
+  ([kname class] (create-index! *db* kname class))
+  ([db kname class] (.createIndex db (name kname) (sym-to-class class) (into-array Parameter []))))
 
 (defn get-indices "Returns the indices of the graph."
-  [] (.getIndices *db*))
+  ([] (get-indices *db*))
+  ([db] (.getIndices db)))
 
-(defn get-index "" [kname class]
-  (.getIndex *db* (name kname) (sym-to-class class)))
+(defn get-index ""
+  ([kname class] (get-index *db* kname class))
+  ([db kname class] (.getIndex db (name kname) (sym-to-class class))))
 
-(defn drop-index! "" [kname] (.dropIndex *db* (name kname)))
+(defn drop-index! ""
+  ([kname] (drop-index! *db* kname))
+  ([db kname] (.dropIndex db (name kname))))
 
 (defn index-class "" [i] (.getIndexClass i))
 
